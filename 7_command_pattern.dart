@@ -1,110 +1,81 @@
+abstract class Receiver {
+  Set<String> get actions;
+}
+
 abstract class Command {
-  IReceiver _receiver;
-  Instructions instructions;
+  Receiver _receiver;
+  late String name;
 
-  Command(this._receiver, this.instructions);
+  Command(this._receiver);
 
-  void execute() {
-    this._receiver.action(instructions);
-  }
+  void execute();
 
-  void unexecute() {
-    this._receiver.undo();
-  }
-}
-
-class IReceiver {
-  void action(Instructions instructions) {}
-  void undo() {}
-}
-
-enum Instructions { LightOn, LightOff, BrightnessUp, BrightnessDown }
-
-class RemoteController {
-  List<Command?> commands = [];
-  Command? on;
-  Command? off;
-  Command? up;
-  Command? down;
-
-  RemoteController(this.on, this.off, this.up, this.down);
-
-  void clickOn() {
-    this.on!.execute();
-    commands.add(on);
-  }
-
-  void clickOff() {
-    this.off!.execute();
-    commands.add(off);
-  }
-
-  void clickUp() {
-    this.up!.execute();
-    commands.add(up);
-  }
-
-  void clickDown() {
-    this.down!.execute();
-    commands.add(down);
-  }
-
-  void clickUndo() {
-    this.commands.removeLast()!.unexecute();
-  }
-}
-
-class LightOnCommand extends Command {
-  LightOnCommand(IReceiver _receiver, Instructions instructions)
-      : super(_receiver, instructions);
-}
-
-class LightOffCommand extends Command {
-  LightOffCommand(IReceiver _receiver, Instructions instructions)
-      : super(_receiver, instructions);
-}
-
-class BrightnessUpCommand extends Command {
-  BrightnessUpCommand(IReceiver _receiver, Instructions instructions)
-      : super(_receiver, instructions);
-}
-
-class BrightnessDownCommand extends Command {
-  BrightnessDownCommand(IReceiver _receiver, Instructions instructions)
-      : super(_receiver, instructions);
-}
-
-class Light implements IReceiver {
   @override
-  void action(Instructions instructions) {
-    switch (instructions) {
-      case Instructions.LightOn:
-        print("Working on light on");
-        break;
-      case Instructions.LightOff:
-        print("Working on light off");
-        break;
-      case Instructions.BrightnessUp:
-        print("Working on brightness up");
-        break;
-      case Instructions.BrightnessDown:
-        print("Working on brightness down");
-        break;
+  String toString() => name;
+}
+
+class Invoker {
+  List<String> history = [];
+
+  void execute(Command cmd) {
+    cmd.execute();
+    history.add("[${DateTime.now()}] Executed $cmd");
+  }
+
+  @override
+  String toString() =>
+      history.fold("", (events, event) => events + "$event\r\n");
+}
+
+class TurnOnCommand extends Command {
+  String name = "TurnOn";
+  TurnOnCommand(Light light) : super(light);
+  @override
+  void execute() => (_receiver as Light).turnOn();
+}
+
+class TurnOffCommand extends Command {
+  String name = "TurnOff";
+  TurnOffCommand(Light light) : super(light);
+  @override
+  void execute() => (_receiver as Light).turnOn();
+}
+
+class Light implements Receiver {
+  @override
+  Set<String> get actions => Set.from(["off", "on"]);
+
+  void turnOn() => print("Light is on!");
+  void turnOff() => print("Light is off!");
+}
+
+class LightSwitch {
+  Invoker _switch = Invoker();
+  Light light;
+
+  LightSwitch(this.light);
+
+  String get history => _switch.toString();
+
+  void perform(String action) {
+    if (!light.actions.contains(action)) return print("Uh..whAt?");
+
+    switch (action) {
+      case "on":
+        return _switch.execute(TurnOnCommand(light));
+      case "off":
+        return _switch.execute(TurnOffCommand(light));
     }
   }
-
-  @override
-  void undo() {}
 }
 
 void main() {
-  Light light = Light(); // Receiver
-  RemoteController ctrl = RemoteController(
-      LightOnCommand(light, Instructions.LightOn),
-      LightOffCommand(light, Instructions.LightOff),
-      BrightnessUpCommand(light, Instructions.BrightnessUp),
-      BrightnessDownCommand(light, Instructions.BrightnessDown)); // Invoker
+  var myLamp = Light();
+  var lightSwitch = LightSwitch(myLamp);
 
-  ctrl.clickOn();
-  ctrl.clickDown();
+  lightSwitch.perform("on");
+  lightSwitch.perform("off");
+  lightSwitch.perform("up");
+
+  print("Some logs: \n" "${lightSwitch.history}");
 }
